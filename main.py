@@ -9,11 +9,11 @@ st.set_page_config(page_title="Personal Finance Tracker", layout="wide")
 st.title("📊 Personal Finance Tracker with Forecasting")
 
 # --- Load Data from GitHub CSV ---
-CSV_URL = "https://raw.githubusercontent.com/devanshvpurohit/project1234567891024/main/personal_finance_data.csv"
+CSV_URL = "https://raw.githubusercontent.com/devanshvpurohit/project1234567891024/main/personal_finance_data.xlsx"
 
 @st.cache_data
 def load_data(url):
-    df = pd.read_csv(url)
+    df = pd.read_xlsx(url)
     df.columns = [col.strip().title() for col in df.columns]
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
     df = df.dropna(subset=["Date"])
