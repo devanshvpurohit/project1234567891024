@@ -4,26 +4,24 @@ import numpy as np
 import plotly.express as px
 from statsmodels.tsa.arima.model import ARIMA
 
-# --- Configuration ---
 st.set_page_config(page_title="Personal Finance Tracker", layout="wide")
 st.title("📊 Personal Finance Tracker with Forecasting")
 
-# --- Load Data from GitHub CSV ---
-CSV_URL = "https://raw.githubusercontent.com/devanshvpurohit/project1234567891024/main/personal_finance_data.xlsx"
+# --- Load Excel file from GitHub ---
+EXCEL_URL = "https://raw.githubusercontent.com/devanshvpurohit/project1234567891024/main/personal_finance_data.xlsx"
 
 @st.cache_data
 def load_data(url):
-    df = pd.read_xlsx(url)
+    return pd.read_excel(url, engine='openpyxl')
+
+try:
+    df = load_data(EXCEL_URL)
     df.columns = [col.strip().title() for col in df.columns]
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
     df = df.dropna(subset=["Date"])
-    return df
-
-try:
-    df = load_data(CSV_URL)
     st.success("✅ Data loaded from GitHub successfully!")
 except Exception as e:
-    st.error("❌ Failed to load data from GitHub. Please check the CSV URL.")
+    st.error(f"❌ Failed to load data: {e}")
     st.stop()
 
 # --- Summary ---
