@@ -65,8 +65,14 @@ if not df.empty:
     # ARIMA Forecast
 # Forecast with statsmodels ARIMA
 st.subheader("📅 Forecasted Expenses (ARIMA)")
+
+# Ensure date format is correct
+expense_df["Date"] = pd.to_datetime(expense_df["Date"], errors="coerce")
+
+# Aggregate monthly expenses
 expense_df["Month"] = expense_df["Date"].dt.to_period("M").astype(str)
 monthly_expense = expense_df.groupby("Month")["Amount"].sum().abs()
+
 
 if len(monthly_expense) >= 3:
     ts = monthly_expense.copy()
