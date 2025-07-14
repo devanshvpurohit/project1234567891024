@@ -9,7 +9,7 @@ st.set_page_config(page_title="Personal Finance Tracker", layout="wide")
 st.title("📊 Personal Finance Tracker with Forecasting")
 
 # --- Load Data from GitHub CSV ---
-CSV_URL = "https://raw.githubusercontent.com/<username>/<repo-name>/main/personal_finance_data.csv"
+CSV_URL = "https://raw.githubusercontent.com/devanshvpurohit/project1234567891024/main/personal_finance_data.csv"
 
 @st.cache_data
 def load_data(url):
