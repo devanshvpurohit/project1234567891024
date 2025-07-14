@@ -1,6 +1,7 @@
 streamlit
 pandas
-numpy
+numpy==1.23.5
 plotly
 pmdarima==2.0.4
 Cython
+setuptools<66
