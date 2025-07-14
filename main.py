@@ -7,21 +7,38 @@ from statsmodels.tsa.arima.model import ARIMA
 st.set_page_config(page_title="Personal Finance Tracker", layout="wide")
 st.title("📊 Personal Finance Tracker with Forecasting")
 
-# --- Load Excel file from GitHub ---
+# --- GitHub Raw Link to XLSX ---
 EXCEL_URL = "https://raw.githubusercontent.com/devanshvpurohit/project1234567891024/main/personal_finance_data.xlsx"
 
 @st.cache_data
 def load_data(url):
-    return pd.read_excel(url, engine='openpyxl')
+    df = pd.read_excel(url, engine="openpyxl")
+
+    # Rename columns for consistency
+    df.rename(columns={
+        "Date / Time": "Date",
+        "Debit/Credit": "Amount",
+        "Sub category": "Subcategory",
+        "Income/Expense": "Type"
+    }, inplace=True)
+
+    # Drop rows with missing dates or amounts
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+    df = df.dropna(subset=["Date", "Amount"])
+
+    # Normalize amount: expenses = negative, income = positive
+    df["Amount"] = df.apply(
+        lambda row: -abs(row["Amount"]) if str(row["Type"]).strip().lower() == "expense" else abs(row["Amount"]),
+        axis=1
+    )
+
+    return df
 
 try:
     df = load_data(EXCEL_URL)
-    df.columns = [col.strip().title() for col in df.columns]
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-    df = df.dropna(subset=["Date"])
-    st.success("✅ Data loaded from GitHub successfully!")
+    st.success("✅ Data loaded successfully from GitHub.")
 except Exception as e:
-    st.error(f"❌ Failed to load data: {e}")
+    st.error(f"❌ Failed to load or process data: {e}")
     st.stop()
 
 # --- Summary ---
@@ -36,10 +53,10 @@ col2.metric("Total Expenses", f"${-total_expense:,.2f}")
 col3.metric("Balance", f"${balance:,.2f}")
 
 # --- Category Breakdown ---
-st.subheader("📂 Spending by Category")
-category_expense = df[df["Amount"] < 0].groupby("Category")["Amount"].sum().abs().sort_values(ascending=False)
+st.subheader("📂 Spending by Subcategory")
+category_expense = df[df["Amount"] < 0].groupby("Subcategory")["Amount"].sum().abs().sort_values(ascending=False)
 fig1 = px.bar(category_expense, x=category_expense.index, y=category_expense.values,
-              labels={"x": "Category", "y": "Amount"}, title="Expenses by Category", color=category_expense.values)
+              labels={"x": "Subcategory", "y": "Amount"}, title="Expenses by Subcategory", color=category_expense.values)
 st.plotly_chart(fig1, use_container_width=True)
 
 # --- Forecasting ---
