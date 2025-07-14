@@ -1,79 +1,58 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import datetime
 import plotly.express as px
 from statsmodels.tsa.arima.model import ARIMA
 
-# Page setup
 st.set_page_config(page_title="Personal Finance Tracker", layout="wide")
-st.title("💰 Personal Finance Tracker with Predictive Analytics")
 
-# Initialize session state
-if 'transactions' not in st.session_state:
-    st.session_state.transactions = pd.DataFrame(columns=["Date", "Type", "Category", "Amount", "Description"])
+# --- File Upload ---
+st.title("📊 Personal Finance Tracker with Forecasting")
 
-# Sidebar: Add Transaction
-st.sidebar.header("➕ Add Transaction")
-with st.sidebar.form("entry_form", clear_on_submit=True):
-    type_ = st.radio("Type", ["Income", "Expense"])
-    category = st.selectbox("Category", ["Salary", "Food", "Transport", "Rent", "Shopping", "Investment", "Other"])
-    amount = st.number_input("Amount", min_value=0.0, format="%.2f")
-    description = st.text_input("Description")
-    date = st.date_input("Date", datetime.date.today())
-    submitted = st.form_submit_button("Add")
+uploaded_file = st.file_uploader("Upload your finance data (.csv or .xlsx)", type=["csv", "xlsx"])
 
-    if submitted:
-        new_data = {
-            "Date": pd.to_datetime(date),
-            "Type": type_,
-            "Category": category,
-            "Amount": amount if type_ == "Income" else -amount,
-            "Description": description
-        }
-        st.session_state.transactions = pd.concat(
-            [st.session_state.transactions, pd.DataFrame([new_data])],
-            ignore_index=True
-        )
-        st.success("Transaction added!")
+if uploaded_file:
+    if uploaded_file.name.endswith('.csv'):
+        df = pd.read_csv(uploaded_file)
+    else:
+        df = pd.read_excel(uploaded_file)
 
-# Load transactions
-df = st.session_state.transactions
+    # Standardize column names
+    df.columns = [col.strip().title() for col in df.columns]
+    required_cols = {"Date", "Amount", "Category"}
+    
+    if not required_cols.issubset(df.columns):
+        st.error(f"❌ Your file must contain these columns: {required_cols}")
+        st.stop()
 
-# Transaction Table
-st.subheader("📊 Transaction History")
-st.dataframe(df.sort_values(by="Date", ascending=False), use_container_width=True)
+    # Convert dates
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+    df = df.dropna(subset=["Date"])
+    
+    st.success("✅ Data loaded successfully!")
 
-# Summary Cards
-st.subheader("📈 Financial Summary")
-if not df.empty:
-    income = df[df["Amount"] > 0]["Amount"].sum()
-    expense = -df[df["Amount"] < 0]["Amount"].sum()
-    balance = income - expense
+    # --- Summary Stats ---
+    st.header("📈 Summary")
+    total_income = df[df["Amount"] > 0]["Amount"].sum()
+    total_expense = df[df["Amount"] < 0]["Amount"].sum()
+    balance = total_income + total_expense
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("Total Income", f"${income:,.2f}")
-    col2.metric("Total Expenses", f"${expense:,.2f}")
-    col3.metric("Current Balance", f"${balance:,.2f}")
+    col1.metric("Total Income", f"${total_income:,.2f}")
+    col2.metric("Total Expenses", f"${-total_expense:,.2f}")
+    col3.metric("Balance", f"${balance:,.2f}")
 
-    # Pie Chart: Spending by Category
+    # --- Category Breakdown ---
     st.subheader("📂 Spending by Category")
-    category_data = df[df["Amount"] < 0].groupby("Category")["Amount"].sum().abs().reset_index()
-    fig1 = px.pie(category_data, values="Amount", names="Category", title="Expense Distribution")
+    category_expense = df[df["Amount"] < 0].groupby("Category")["Amount"].sum().abs().sort_values(ascending=False)
+    fig1 = px.bar(category_expense, x=category_expense.index, y=category_expense.values,
+                  labels={"x": "Category", "y": "Amount"}, title="Expenses by Category", color=category_expense.values)
     st.plotly_chart(fig1, use_container_width=True)
 
-    # ARIMA Forecast
-# Forecast with statsmodels ARIMA
-st.subheader("📅 Forecasted Expenses (ARIMA)")
+    # --- Forecasting ---
+    st.subheader("📅 Expense Forecast (ARIMA)")
 
-expense_df = df[df["Amount"] < 0].copy()  # Use .copy() to avoid SettingWithCopyWarning
-
-# Ensure 'Date' column exists and is valid
-if "Date" in expense_df.columns and not expense_df.empty:
-    expense_df["Date"] = pd.to_datetime(expense_df["Date"], errors="coerce")
-    expense_df = expense_df.dropna(subset=["Date"])
-
-    # Prepare monthly grouping
+    expense_df = df[df["Amount"] < 0].copy()
     expense_df["Month"] = expense_df["Date"].dt.to_period("M").astype(str)
     monthly_expense = expense_df.groupby("Month")["Amount"].sum().abs()
 
@@ -92,10 +71,11 @@ if "Date" in expense_df.columns and not expense_df.empty:
             "Amount": ts.tolist() + forecast.tolist()
         })
 
-        fig2 = px.line(forecast_df, x="Month", y="Amount", title="Monthly Expense Forecast", markers=True)
+        fig2 = px.line(forecast_df, x="Month", y="Amount", title="Expense Forecast (Next 3 Months)", markers=True)
         fig2.update_traces(line=dict(color="orange"))
         st.plotly_chart(fig2, use_container_width=True)
     else:
-        st.info("Add at least 3 months of expenses to see forecasts.")
+        st.info("📉 Add at least 3 months of expenses to generate a forecast.")
+
 else:
-    st.info("No valid expense dates available to forecast.")
+    st.info("⬆️ Upload a `.csv` or `.xlsx` file to begin.")
